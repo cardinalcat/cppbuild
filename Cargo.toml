@@ -1,0 +1,16 @@
+[package]
+name = "cdepman"
+version = "0.1.0"
+authors = ["julian lazaras <lazaras@pdx.edu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+toml = "0.5.6"
+serde = "*"
+serde_json = "*"
+serde_derive = "*"
+whoami = "*"
+walkdir = "*"
+pkg-config = {path = "pkg-config-rs"}
