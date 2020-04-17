@@ -10,3 +10,4 @@
 <li>provide a tool for linting, automatic documentation, and code formatting</li>
 <li>act as a package manager when the system package manager is unable to provided needed libraries</li>
 </ul>
+Currently working functions include basic setup, linking against external pkg-config libraries, and publishing cppbuild packages
