@@ -1,5 +1,4 @@
-use crate::Project;
-use pkg_config::Library;
+use crate::project::Project;
 use std::cell::RefCell;
 use std::io::Write;
 use std::process::Command;
@@ -11,7 +10,7 @@ pub struct Program {
 }
 impl Program {
     pub fn build(&mut self) -> std::result::Result<(), std::io::Error> {
-        let mut op = match Command::new("g++")
+        let op = match Command::new("g++")
             .args(&["-o", "target/main", "-Iheaders/"])
             .args(self.sources.get_mut())
             .args(self.dependencies.iter())
@@ -29,14 +28,19 @@ impl Program {
         }
         Ok(())
     }
-    pub fn new(project: Project) -> Program {
-        let mut sources = Box::new(RefCell::new(Vec::new()));
+    pub fn new(project: &Project) -> Program {
+        let sources; // = Box::new(RefCell::new(Vec::new()));
         let mut dependencies = Box::new(Vec::new());
         let mut include = Box::new(Vec::new());
-        match project.dependency {
+        match &project.dependency {
             Some(dep) => {
                 for depend in dep.iter() {
-                    match pkg_config::probe_library(depend.get_name().as_str()) {
+                    let mut config = pkg_config::Config::new();
+                    if depend.get_version() != "*".to_string() {
+                        config.exactly_version(&depend.get_version());
+                    }
+                    //println!(depend.get_version());
+                    match config.probe(depend.get_name().as_str()) {
                         Ok(lib) => {
                             for l in lib.libs {
                                 let li = format!("{}{}", "-l", l);
@@ -44,7 +48,11 @@ impl Program {
                                 dependencies.push(li);
                             }
                             for i in lib.include_paths {
-                                let inc = format!("{}{}", "-I", i.into_os_string().into_string().unwrap());
+                                let inc = format!(
+                                    "{}{}",
+                                    "-I",
+                                    i.into_os_string().into_string().unwrap()
+                                );
                                 include.push(inc);
                             }
                             // add all includes to one vector of args
@@ -52,15 +60,15 @@ impl Program {
                         Err(e) => println!("error: {}", e),
                     }
                 }
-                let mut walk: RefCell<walkdir::IntoIter> =
+                let walk: RefCell<walkdir::IntoIter> =
                     RefCell::new(WalkDir::new("src").into_iter());
-                let mut build: RefCell<Vec<String>> = RefCell::new(Vec::new());
+                let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
                 sources = add_file(walk, build);
             }
             None => {
-                let mut walk: RefCell<walkdir::IntoIter> =
+                let walk: RefCell<walkdir::IntoIter> =
                     RefCell::new(WalkDir::new("src").into_iter());
-                let mut build: RefCell<Vec<String>> = RefCell::new(Vec::new());
+                let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
                 sources = add_file(walk, build);
             }
         }
@@ -70,8 +78,13 @@ impl Program {
             include,
         }
     }
-    pub fn get_flags(&mut self) -> String{
-        format!("include paths: {:?}\n libraries: {:?}\n source files: {:?}", self.include, self.dependencies, self.sources.get_mut())
+    pub fn get_flags(&mut self) -> String {
+        format!(
+            "include paths: {:?}\n libraries: {:?}\n source files: {:?}",
+            self.include,
+            self.dependencies,
+            self.sources.get_mut()
+        )
     }
 }
 pub fn add_file<'a>(

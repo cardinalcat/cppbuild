@@ -70,7 +70,7 @@ use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
 use std::ops::{Bound, RangeBounds};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::process::{Command, Output};
 use std::str;
 
@@ -304,7 +304,7 @@ impl Config {
         let mut library = Library::new();
 
         let output = run(self.command(name, &["--libs", "--cflags"]))?;
-        library.parse_libs_cflags(name, &output, self);
+        library.parse_libs_cflags(&output);
 
         let output = run(self.command(name, &["--modversion"]))?;
         library.parse_modversion(str::from_utf8(&output).unwrap());
@@ -423,12 +423,6 @@ impl Config {
         cmd
     }
 
-    fn print_metadata(&self, s: &str) {
-        /*if self.cargo_metadata {
-            println!("cargo:{}", s);
-        }*/
-    }
-
     fn infer_static(&self, name: &str) -> bool {
         let name = envify(name);
         if self.env_var_os(&format!("{}_STATIC", name)).is_some() {
@@ -475,7 +469,7 @@ impl Library {
         }
     }
 
-    fn parse_libs_cflags(&mut self, name: &str, output: &[u8], config: &Config) {
+    fn parse_libs_cflags(&mut self, output: &[u8]) {
         let mut is_msvc = false;
         if let Ok(target) = env::var("TARGET") {
             if target.contains("msvc") {
@@ -491,18 +485,16 @@ impl Library {
             .collect::<Vec<_>>();
 
         let mut dirs = Vec::new();
-        let statik = config.is_static(name);
+        
         for &(flag, val) in &parts {
             match flag {
                 "-L" => {
-                    let meta = format!("rustc-link-search=native={}", val);
-                    config.print_metadata(&meta);
+                    
                     dirs.push(PathBuf::from(val));
                     self.link_paths.push(PathBuf::from(val));
                 }
                 "-F" => {
-                    let meta = format!("rustc-link-search=framework={}", val);
-                    config.print_metadata(&meta);
+                    
                     self.framework_paths.push(PathBuf::from(val));
                 }
                 "-I" => {
@@ -512,14 +504,6 @@ impl Library {
                     // These are provided by the CRT with MSVC
                     if is_msvc && ["m", "c", "pthread"].contains(&val) {
                         continue;
-                    }
-
-                    if statik && is_static_available(val, &dirs) {
-                        let meta = format!("rustc-link-lib=static={}", val);
-                        config.print_metadata(&meta);
-                    } else {
-                        let meta = format!("rustc-link-lib={}", val);
-                        config.print_metadata(&meta);
                     }
 
                     self.libs.push(val.to_string());
@@ -547,8 +531,6 @@ impl Library {
                 continue;
             }
             if let Some(lib) = iter.next() {
-                let meta = format!("rustc-link-lib=framework={}", lib);
-                config.print_metadata(&meta);
                 self.frameworks.push(lib.to_string());
             }
         }
@@ -564,20 +546,6 @@ fn envify(name: &str) -> String {
         .map(|c| c.to_ascii_uppercase())
         .map(|c| if c == '-' { '_' } else { c })
         .collect()
-}
-
-/// System libraries should only be linked dynamically
-fn is_static_available(name: &str, dirs: &[PathBuf]) -> bool {
-    let libname = format!("lib{}.a", name);
-    let system_roots = if cfg!(target_os = "macos") {
-        vec![Path::new("/Library"), Path::new("/System")]
-    } else {
-        vec![Path::new("/usr")]
-    };
-
-    dirs.iter().any(|dir| {
-        !system_roots.iter().any(|sys| dir.starts_with(sys)) && dir.join(&libname).exists()
-    })
 }
 
 fn run(mut cmd: Command) -> Result<Vec<u8>, Error> {

@@ -2,20 +2,21 @@
 extern crate toml;
 mod compiling;
 mod project;
+mod upstream;
 use compiling::Program;
 use project::Project;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::option::Option;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use upstream::*;
 
 pub fn print_help(code: i32) -> ! {
     println!(
         "\tUSAGE:
         new \t <name> \t creates new project.
-        -h, --help \t\t displays this message."
+        -h, --help \t\t displays this message.
+        --get-flags \t\t prints flags sent to g++."
     );
     println!("error code: {}", code);
     std::process::exit(code);
@@ -31,8 +32,11 @@ fn main() {
                 print_help(0);
             }
             "--get-flags" => {
-                println!("{}", create_program().get_flags());
-            },
+                println!(
+                    "{}",
+                    Program::new(&Project::from_file(".").unwrap()).get_flags()
+                );
+            }
             "new" => {
                 index = index + 1;
                 let project_name = match args.get(index) {
@@ -56,19 +60,32 @@ fn main() {
                     _ => panic!("couldn't create initial toml file"),
                 };
 
-                let project = Project::new(project_name.clone());
+                let project = Project::new(project_name.clone(), Some("bin".to_string()), None);
                 file.write_all(&toml::to_string(&project).unwrap().into_bytes())
                     .unwrap();
             }
             "build" => {
-                create_program().build();
+                Program::new(&Project::from_file(".").unwrap())
+                    .build()
+                    .expect("unable to build the program due to an io error");
+            }
+            "upload" => {
+                index = index + 1;
+                let project_name = match args.get(index) {
+                    Some(arg) => arg,
+                    None => print_help(1),
+                };
+                generate_package(PackageType::PkgConfig, "opencv4");
+            }
+            "publish" => {
+                generate_package(PackageType::CppBuild, ".");
             }
             _ => print_help(2),
         }
         index = index + 1;
     }
 }
-pub fn create_program() -> Program{
+/*pub fn create_program() -> Program {
     let mut file = match File::open("build.toml") {
         Ok(file) => file,
         Err(e) => panic!("error: {:?}", e),
@@ -83,9 +100,10 @@ pub fn create_program() -> Program{
     //then create the program
     //then build the program
     let mut content = String::new();
-    file.read_to_string(&mut content);
+    file.read_to_string(&mut content)
+        .expect("unable to read toml file");
     //println!("content: {}", content);
     let pro = toml::from_str(content.as_str()).unwrap();
     Program::new(pro)
     // handle dependencies and everything later
-}
+}*/

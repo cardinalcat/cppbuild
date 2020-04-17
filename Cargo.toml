@@ -1,5 +1,5 @@
 [package]
-name = "cdepman"
+name = "cppbuild"
 version = "0.1.0"
 authors = ["julian lazaras <lazaras@pdx.edu>"]
 edition = "2018"
@@ -13,4 +13,8 @@ serde_json = "*"
 serde_derive = "*"
 whoami = "*"
 walkdir = "*"
-pkg-config = {path = "pkg-config-rs"}
+pkg-config = {path = "pkg-config"}
+tempfile = "*"
+tar = "*"
+reqwest = { version = "0.10", features = ["blocking", "json"] }
+libflate = "*"

@@ -2,6 +2,7 @@
 name = "random"
 version = "0.1.0"
 standard = "c++17"
+project_type = "bin"
 
 [[owners]]
 name = "cardinal"
@@ -9,4 +10,4 @@ email = "unset"
 
 [[dependency]]
 name = "opencv4"
-version = "4.3.0"
+version = "*"
