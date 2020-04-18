@@ -1,4 +1,6 @@
 //extern crate argparse;
+#[macro_use]
+extern crate lazy_static;
 extern crate toml;
 mod compiling;
 mod project;
@@ -85,25 +87,3 @@ fn main() {
         index = index + 1;
     }
 }
-/*pub fn create_program() -> Program {
-    let mut file = match File::open("build.toml") {
-        Ok(file) => file,
-        Err(e) => panic!("error: {:?}", e),
-    };
-    if !Path::new("target/").exists() {
-        match create_dir("target") {
-            Ok(()) => (),
-            Err(e) => println!("error: {}", e),
-        }
-    }
-    //crate the project
-    //then create the program
-    //then build the program
-    let mut content = String::new();
-    file.read_to_string(&mut content)
-        .expect("unable to read toml file");
-    //println!("content: {}", content);
-    let pro = toml::from_str(content.as_str()).unwrap();
-    Program::new(pro)
-    // handle dependencies and everything later
-}*/
