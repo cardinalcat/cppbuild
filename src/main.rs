@@ -36,7 +36,7 @@ fn main() {
             "--get-flags" => {
                 println!(
                     "{}",
-                    Program::new(&Project::from_file(".").unwrap()).get_flags()
+                    Program::new(&Project::from_file(".").unwrap(), ".").get_flags()
                 );
             }
             "new" => {
@@ -67,8 +67,8 @@ fn main() {
                     .unwrap();
             }
             "build" => {
-                Program::new(&Project::from_file(".").unwrap())
-                    .build()
+                Program::new(&Project::from_file(".").unwrap(), ".")
+                    .build(".")
                     .expect("unable to build the program due to an io error");
             }
             "upload" => {
@@ -81,6 +81,19 @@ fn main() {
             }
             "publish" => {
                 generate_package(PackageType::CppBuild, ".");
+            }
+            "fetch" => {
+                index = index + 1;
+                let project_name = match args.get(index) {
+                    Some(arg) => arg,
+                    None => print_help(6),
+                };
+                index = index + 1;
+                let project_version = match args.get(index) {
+                    Some(arg) => arg,
+                    None => print_help(7),
+                };
+                download_packages(&vec![(project_name.to_owned(), project_version.to_owned())]);
             }
             _ => print_help(2),
         }

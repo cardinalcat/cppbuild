@@ -9,9 +9,9 @@ pub struct Program {
     include: Box<Vec<String>>,
 }
 impl Program {
-    pub fn build(&mut self) -> std::result::Result<(), std::io::Error> {
+    pub fn build(&mut self, path: &str) -> std::result::Result<(), std::io::Error> {
         let op = match Command::new("g++")
-            .args(&["-o", "target/main", "-Iheaders/"])
+            .args(&["-o", format!("{}/target/main", path).as_str(), "-Iheaders/"])
             .args(self.sources.get_mut())
             .args(self.dependencies.iter())
             .args(self.include.iter())
@@ -28,7 +28,7 @@ impl Program {
         }
         Ok(())
     }
-    pub fn new(project: &Project) -> Program {
+    pub fn new(project: &Project, path: &str) -> Program {
         let sources; // = Box::new(RefCell::new(Vec::new()));
         let mut dependencies = Box::new(Vec::new());
         let mut include = Box::new(Vec::new());
@@ -61,7 +61,7 @@ impl Program {
                     }
                 }
                 let walk: RefCell<walkdir::IntoIter> =
-                    RefCell::new(WalkDir::new("src").into_iter());
+                    RefCell::new(WalkDir::new(format!("{}/src", path).as_str()).into_iter());
                 let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
                 sources = add_file(walk, build);
             }

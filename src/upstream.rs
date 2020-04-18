@@ -1,6 +1,7 @@
 use crate::project::Package;
 use crate::project::Project;
-use libflate::gzip::Encoder;
+use libflate::gzip::{Decoder, Encoder};
+use std::convert::TryInto;
 use std::io::{Read, Write};
 use walkdir::WalkDir;
 
@@ -8,7 +9,7 @@ use crate::compiling::Program;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir, File};
 use std::io;
-use std::io::copy;
+use std::io::{copy, Cursor, ErrorKind};
 use std::path::Path;
 use std::sync::Mutex;
 use tar::Archive;
@@ -92,22 +93,28 @@ pub fn download_packages(packages: &Vec<(String, String)>) -> io::Result<()> {
             None,
             None,
         )) {*/
-            println!("arch: {}", get_arch());
-            let mut response = reqwest::blocking::get(
-                format!(
-                    "http://localhost/{}/sources/{}-{}.tar.gz",
-                    get_arch(), name, version
-                )
-                .as_str(),
+        println!("arch: {}", get_arch()?);
+        let mut response = reqwest::blocking::get(
+            format!(
+                "http://localhost/cppbuild/{}/{}-{}.tar.gz",
+                get_arch()?,
+                name,
+                version
             )
-            .unwrap();
-            let mut a = Archive::new(response);
-            for file in a.entries().unwrap() {
-                let file = file.unwrap();
-                let path = file.path();
-                println!("path: {:?}", path);
-            }
-       // }
+            .as_str(),
+        )
+        .unwrap();
+        //let mut file = File::create(format!("{}/{}-{}.tar.gz", PROGRAM_DATA.lock().unwrap(), name, version).as_str()).unwrap();
+        let bytes: Vec<u8> = response.bytes().unwrap().to_vec();
+        println!("bytes recv: {}", bytes.len());
+        //file.write_all(&bytes).unwrap();
+        //file.sync_all().unwrap();
+        let mut decoder = Decoder::new(&*bytes)?;
+        let mut decoded_data = Vec::new();
+        decoder.read_to_end(&mut decoded_data)?;
+        let mut a = Archive::new(&*decoded_data);
+        a.unpack(format!("{}/{}-{}/", PROGRAM_DATA.lock().unwrap(), name, version).as_str());
+        // }
     }
     Ok(())
 }
@@ -158,6 +165,7 @@ pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<()> {
             }
         }
     }
+    archive.finish()?;
     let mut tarfile = File::open(tarpath.as_str())?;
     let mut encoder = match Encoder::new(Vec::new()) {
         Ok(ent) => ent,
@@ -182,7 +190,25 @@ pub fn generate_pc(program: &Program) -> std::io::Result<()> {
 pub fn build_to_pc(project: &Project) -> std::io::Result<()> {
     Ok(())
 }
-pub fn get_arch() -> String {
+pub fn get_arch() -> std::io::Result<String> {
     let rust_info = rust_info::get();
-    format!("{}-{}", rust_info.target_arch.unwrap(), rust_info.target_os.unwrap())
+    Ok(format!(
+        "{}-{}",
+        match rust_info.target_arch {
+            Some(arch) => arch,
+            None =>
+                return Err(std::io::Error::new(
+                    ErrorKind::Other,
+                    "Failed to get architecture"
+                )),
+        },
+        match rust_info.target_os {
+            Some(arch) => arch,
+            None =>
+                return Err(std::io::Error::new(
+                    ErrorKind::Other,
+                    "Failed to get architecture"
+                )),
+        }
+    ))
 }
