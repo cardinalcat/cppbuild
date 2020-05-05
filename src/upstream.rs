@@ -136,7 +136,7 @@ pub fn generate_package(kind: PackageType, path: &str) -> std::io::Result<()> {
                         // get link paths and for each file in them match it against library name
                         for l in lib.libs.iter(){
                             let path_name = format!("{}/{}", link.display(), l);
-                            let file: Path = Path::new(path_name);
+                            let file: &Path = &Path::new(&path_name);
                             if file.exists() && file.is_file(){
                                 // the object file exists
                                 let mut src = File::open(file)?;

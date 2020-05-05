@@ -32,7 +32,7 @@ impl Program {
         let sources; // = Box::new(RefCell::new(Vec::new()));
         let mut dependencies = Box::new(Vec::new());
         let mut include = Box::new(Vec::new());
-        match &project.dependency {
+        match &project.get_dependencies() {
             Some(dep) => {
                 for depend in dep.iter() {
                     let mut config = pkg_config::Config::new();

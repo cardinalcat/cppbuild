@@ -2,11 +2,12 @@ use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir, File};
 use std::io::Read;
 use std::path::Path;
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Project {
+use clang::Entity;
+#[derive(Debug)]
+pub struct Project<'tu> {
     package: Package,
-    owners: Vec<Owner>,
-    pub dependency: Option<Vec<Dependency>>,
+    examples: Option<Vec<Example>>,
+    tests: Option<Test<'tu>>
 }
 //thinking of moving deps, and owners to package then putting examples and tests in Project
 #[derive(Debug, Serialize, Deserialize)]
@@ -16,15 +17,20 @@ pub struct Package {
     standard: Option<String>,
     project_type: Option<String>,
     url: Option<String>,
+    owners: Vec<Owner>,
+    pub dependency: Option<Vec<Dependency>>,
 }
+#[derive(Debug)]
 pub struct Example{
     name: String,
     exec_path: String,
 }
-pub struct Test{
+#[derive(Debug)]
+pub struct Test<'tu>{
     name: String,
+    entities: Vec<Entity<'tu>>,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Dependency {
     name: String,
     version: String,
@@ -50,7 +56,7 @@ pub struct Owner {
     email: String,
 }
 
-impl Project {
+impl Project<'_> {
     pub fn new(name: String, project_type: Option<String>, owners: Option<Vec<Owner>>) -> Self {
         let mut own = Vec::new();
         match owners {
@@ -63,10 +69,20 @@ impl Project {
                 "0.1.0".to_string(),
                 Some("c++17".to_string()),
                 project_type,
+                own,
                 None,
             ),
-            owners: own,
-            dependency: None,
+            examples: None,
+            tests: None,
+        }
+    }
+    pub fn get_package(self) -> Package{
+        self.package
+    }
+    pub fn get_dependencies(&self) -> Option<Vec<Dependency>>{
+        match &self.package.dependency{
+            Some(dep) => Some(dep.clone()),
+            None => None,
         }
     }
     pub fn get_type(&self) -> String {
@@ -95,7 +111,7 @@ impl Project {
             Err(e) => return Err(e),
         }
         //println!("content: {}", content);
-        Ok(toml::from_str(content.as_str()).unwrap())
+        Ok(Self { package: toml::from_str(content.as_str()).unwrap(), examples: None, tests: None})
     }
 }
 
@@ -105,6 +121,7 @@ impl Package {
         version: String,
         _standard: Option<String>,
         project_type: Option<String>,
+        owners: Vec<Owner>,
         url: Option<String>,
     ) -> Self {
         Self {
@@ -113,6 +130,8 @@ impl Package {
             standard: Some("c++17".to_string()),
             project_type,
             url,
+            owners,
+            dependency: None,
         }
     }
 }

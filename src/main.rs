@@ -65,7 +65,7 @@ fn main() {
                 };
 
                 let project = Project::new(project_name.clone(), Some("bin".to_string()), None);
-                file.write_all(&toml::to_string(&project).unwrap().into_bytes())
+                file.write_all(&toml::to_string(&project.get_package()).unwrap().into_bytes())
                     .unwrap();
             }
             "build" => {
