@@ -8,6 +8,7 @@ pub struct Project {
     owners: Vec<Owner>,
     pub dependency: Option<Vec<Dependency>>,
 }
+//thinking of moving deps, and owners to package then putting examples and tests in Project
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Package {
     name: String,
@@ -15,6 +16,13 @@ pub struct Package {
     standard: Option<String>,
     project_type: Option<String>,
     url: Option<String>,
+}
+pub struct Example{
+    name: String,
+    exec_path: String,
+}
+pub struct Test{
+    name: String,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dependency {
@@ -83,7 +91,7 @@ impl Project {
         }
         let mut content = String::new();
         match file.read_to_string(&mut content) {
-            Ok(len) => (),
+            Ok(_) => (),
             Err(e) => return Err(e),
         }
         //println!("content: {}", content);
@@ -95,7 +103,7 @@ impl Package {
     pub fn new(
         name: String,
         version: String,
-        standard: Option<String>,
+        _standard: Option<String>,
         project_type: Option<String>,
         url: Option<String>,
     ) -> Self {

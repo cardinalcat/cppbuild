@@ -1,7 +1,6 @@
 use crate::project::Package;
 use crate::project::Project;
 use libflate::gzip::{Decoder, Encoder};
-use std::convert::TryInto;
 use std::io::{Read, Write};
 use walkdir::WalkDir;
 
@@ -9,7 +8,7 @@ use crate::compiling::Program;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir, File};
 use std::io;
-use std::io::{copy, Cursor, ErrorKind};
+use std::io::{ErrorKind};
 use std::path::Path;
 use std::sync::Mutex;
 use tar::Archive;
@@ -133,8 +132,18 @@ pub fn generate_package(kind: PackageType, path: &str) -> std::io::Result<()> {
             let mut conf = pkg_config::Config::new();
             match conf.probe(path) {
                 Ok(lib) => {
-                    for l in lib.link_paths.iter() {
+                    for link in lib.link_paths.iter() {
                         // get link paths and for each file in them match it against library name
+                        for l in lib.libs.iter(){
+                            let path_name = format!("{}/{}", link.display(), l);
+                            let file: Path = Path::new(path_name);
+                            if file.exists() && file.is_file(){
+                                // the object file exists
+                                let mut src = File::open(file)?;
+                                //create the new file
+                                let mut dst = File::create("")?;
+                            }
+                        }
                     }
                     for i in lib.include_paths.iter() {
                         // for every file in include_paths copy the file to the archive

@@ -18,7 +18,9 @@ pub fn print_help(code: i32) -> ! {
         "\tUSAGE:
         new \t <name> \t creates new project.
         -h, --help \t\t displays this message.
-        --get-flags \t\t prints flags sent to g++."
+        --get-flags \t\t prints flags sent to g++.
+        fetch name version \t downloads the package and saves it to ~/.cppbuild
+        publish \t\t generates a tar ball with the source code of the project"
     );
     println!("error code: {}", code);
     std::process::exit(code);
@@ -77,10 +79,10 @@ fn main() {
                     Some(arg) => arg,
                     None => print_help(1),
                 };
-                generate_package(PackageType::PkgConfig, "opencv4");
+                generate_package(PackageType::PkgConfig, "opencv4").unwrap();
             }
             "publish" => {
-                generate_package(PackageType::CppBuild, ".");
+                generate_package(PackageType::CppBuild, ".").unwrap();
             }
             "fetch" => {
                 index = index + 1;
@@ -93,7 +95,7 @@ fn main() {
                     Some(arg) => arg,
                     None => print_help(7),
                 };
-                download_packages(&vec![(project_name.to_owned(), project_version.to_owned())]);
+                download_packages(&vec![(project_name.to_owned(), project_version.to_owned())]).unwrap();
             }
             _ => print_help(2),
         }
