@@ -129,8 +129,9 @@ pub fn download_packages(packages: &Vec<(String, String)>) -> io::Result<()> {
 pub fn generate_package(kind: PackageType, path: &str) -> std::io::Result<()> {
     match kind {
         PackageType::CppBuild => {
-            let project = Project::from_file(".")?;
-            compress(".", &project.get_name(), &project.get_version())?;
+            let project = Project::from_file(path)?;
+            println!("path: {}", path);
+            compress(path, &project.get_name(), &project.get_version())?;
             Ok(())
         }
         PackageType::Make => Ok(()),

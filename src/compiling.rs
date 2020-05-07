@@ -7,15 +7,25 @@ pub struct Program {
     sources: Box<RefCell<Vec<String>>>,
     dependencies: Box<Vec<String>>,
     include: Box<Vec<String>>,
+    program_type: String,
 }
 impl Program {
     pub fn build(&mut self, path: &str) -> std::result::Result<(), std::io::Error> {
+        let mut extra_args = Vec::new();
+        if(self.program_type == "lib".to_string()){
+            extra_args.push("-c".to_string());
+            extra_args.push("-o".to_string());
+            extra_args.push(format!("{}/target/lib.o", path));
+        }else{
+            extra_args.push("-o".to_string());
+            extra_args.push(format!("{}/target/main", path));
+        }
         let op = match Command::new("g++")
-            .args(&["-o", format!("{}/target/main", path).as_str(), "-Iheaders/"])
+            .args(&["-Iheaders/"])
+            .args(extra_args.iter())
             .args(self.sources.get_mut())
             .args(self.dependencies.iter())
-            .args(self.include.iter())
-            .output()
+            .args(self.include.iter()).output()
         {
             Ok(out) => out.stdout,
             Err(e) => return Err(e),
@@ -76,6 +86,7 @@ impl Program {
             sources,
             dependencies,
             include,
+            program_type: project.get_type(),
         }
     }
     pub fn get_flags(&mut self) -> String {

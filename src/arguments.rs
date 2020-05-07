@@ -45,6 +45,9 @@ impl Arg{
     pub fn new(name: String, kind: ArgType) -> Self{
         Self {name, kind}
     }
+    pub fn get_name(&self) -> String{
+        self.name.clone()
+    }
 }
 impl Flag{
     pub fn new(flag: String, values: Vec<String>) -> Self{
@@ -74,7 +77,7 @@ impl Arguments{
             Operation::new(flag.to_string(), func)
         );
     }
-    pub fn parse(mut self){
+    pub fn parse(&self){
         //seperate out flags and their children
         //then iterate through again to invoke each operation
         // convert args to slice so direct access is safer
@@ -96,24 +99,37 @@ impl Arguments{
                     Some(index) => *index,
                     None => slice_args.len(),
                 };
-                let mut fun = op.func.get_mut();
+                let fun = op.func.get_mut();
                 fun(&slice_args[start..end], &self);
             }
             ind = ind + 1;
         }
     }
+    ///this function is broken for now
     pub fn get_flag(&self, flag_name: &str) -> Option<Flag>{
         match &self.flags {
             Some(fs) => {
                 for flag in fs.iter(){
-                    if flag.get_name() == flag_name {
+                    if flag.get_name() == flag_name.to_string() {
                         return Some(flag.clone());
                     }
+                    println!("flag_name: {}", flag_name);
                 }
                 None
             },
             None => None,
         }
+    }
+    pub fn get_arg(&self, flag_name: &str) -> Option<Arg>{
+        for arg in self.args.iter(){
+            if arg.get_name() == flag_name.to_string() {
+                return Some(arg.clone());
+            }
+        }
+        None
+    }
+    pub fn has_arg(&self, flag_name: &str) -> bool{
+        exists(self.get_arg(flag_name))
     }
     pub fn get_flags(&self) -> Vec<Arg>{
         self.args.clone()
