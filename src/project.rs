@@ -2,12 +2,12 @@ use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir, File};
 use std::io::Read;
 use std::path::Path;
-use clang::Entity;
+use clang::*;
 #[derive(Debug)]
-pub struct Project<'tu> {
+pub struct Project{
     package: Package,
     examples: Option<Vec<Example>>,
-    tests: Option<Test<'tu>>
+    tests: Option<Test>
 }
 //thinking of moving deps, and owners to package then putting examples and tests in Project
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,10 +25,47 @@ pub struct Example{
     name: String,
     exec_path: String,
 }
-#[derive(Debug)]
-pub struct Test<'tu>{
+impl Example{
+    pub fn new(name: String, exec_path: String) -> Self{
+        Self {name, exec_path}
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Item{
     name: String,
-    entities: Vec<Entity<'tu>>,
+    comment: Option<String>,
+}
+impl Item{
+    pub fn new(name: String, comment: Option<String>) -> Self{
+        Self {name, comment }
+    }
+}
+#[derive(Debug)]
+pub struct Test{
+    name: String,
+    entities: Vec<Item>,
+}
+impl Test{
+    pub fn from_file(path: &str) -> Self{
+        let clang = Clang::new().unwrap();
+        let index = Index::new(&clang, true, false);
+        let tu = index.parser(path).parse().unwrap();
+        let functions = tu.get_entity().get_children().into_iter().filter(|e| {
+            e.get_kind() == EntityKind::FunctionDecl
+        }).collect::<Vec<_>>();
+        for item in tu.get_entity().get_children().into_iter(){
+            println!("child: {:?}", item);
+        }
+        let mut funcs = Vec::with_capacity(functions.len());
+        for func in functions.iter(){
+            //println!("func: {:?}", func);
+            funcs.push( Item::new( func.get_display_name().unwrap(), func.get_comment() ) );
+        }
+        Self {name: path.to_string(), entities: funcs}
+    }
+    pub fn get_entities(&self) -> Vec<Item>{
+        self.entities.clone()
+    }
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Dependency {
@@ -56,7 +93,7 @@ pub struct Owner {
     email: String,
 }
 
-impl Project<'_> {
+impl Project {
     pub fn new(name: String, project_type: Option<String>, owners: Option<Vec<Owner>>) -> Self {
         let mut own = Vec::new();
         match owners {
@@ -110,6 +147,7 @@ impl Project<'_> {
             Ok(_) => (),
             Err(e) => return Err(e),
         }
+        println!("content: {}", content);
         //println!("content: {}", content);
         Ok(Self { package: toml::from_str(content.as_str()).unwrap(), examples: None, tests: None})
     }

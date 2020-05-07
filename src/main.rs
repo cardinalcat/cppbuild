@@ -2,16 +2,19 @@
 #[macro_use]
 extern crate lazy_static;
 extern crate toml;
-mod compiling;
-mod project;
-mod upstream;
+pub mod compiling;
+pub mod project;
+pub mod upstream;
+pub mod arguments;
 use compiling::Program;
 use project::Project;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
+use project::Test;
 use upstream::*;
+use arguments::Arguments;
 
 pub fn print_help(code: i32) -> ! {
     println!(
@@ -26,7 +29,50 @@ pub fn print_help(code: i32) -> ! {
     std::process::exit(code);
 }
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args = Arguments::new();
+    args.invoke_callback("--help", &move |mut args, flags|{
+        print_help(0);
+    });
+    args.invoke_callback("--build", &move |mut flags, args|{
+        Program::new(&Project::from_file(".").unwrap(), ".")
+            .build(".")
+            .expect("unable to build the program due to an io error");
+    });
+    args.invoke_callback("--flags", &move |flags, args|{
+        println!("flags: {:?}", flags);
+        println!("args other flags: {:?}", args.get_flags());
+    });
+    args.invoke_callback("--new", &move |flags, args| {
+        println!("new option selected");
+    });
+    args.parse();
+    /*args.invoke_callback("new", &mut |mut args|{
+        let project_name = match args.get(0) {
+            Some(arg) => arg.,
+            None => print_help(1),
+        };
+        match create_dir(project_name) {
+            Ok(()) => (),
+            _ => print_help(3),
+        }
+        match create_dir(format!("{}/{}", project_name, "src")) {
+            Ok(()) => (),
+            _ => print_help(4),
+        }
+        match create_dir(format!("{}/{}", project_name, "headers")) {
+            Ok(()) => (),
+            _ => print_help(5),
+        }
+        let mut file = match File::create(format!("{}/{}", project_name, "build.toml")) {
+            Ok(f) => f,
+            _ => panic!("couldn't create initial toml file"),
+        };
+
+        let project = Project::new(project_name.clone(), Some("bin".to_string()), None);
+        file.write_all(&toml::to_string(&project.get_package()).unwrap().into_bytes())
+            .unwrap();
+    });*/
+    /*let args: Vec<String> = std::env::args().skip(1).collect();
     //let mut project: Option<Arc<Mutex<Project>>> = None;
     let mut index = 0;
     while index < args.len() {
@@ -97,8 +143,18 @@ fn main() {
                 };
                 download_packages(&vec![(project_name.to_owned(), project_version.to_owned())]).unwrap();
             }
+            "test" => {
+                create_test();
+            }
             _ => print_help(2),
         }
         index = index + 1;
+    }*/
+}
+pub fn create_test(){
+    println!("create test called");
+    let test = Test::from_file("tests/tests.cpp");
+    for t in test.get_entities().iter(){
+        //println!("test function: {:?}", t);
     }
 }

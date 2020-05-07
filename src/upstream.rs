@@ -33,6 +33,13 @@ lazy_static! {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct RepoEntry{
+    name: String,
+    version: String,
+    build_type: PackageType,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Index {
     packages: Vec<Package>,
 }
@@ -50,7 +57,7 @@ impl Index {
 pub struct Version {
     raw: String,
 }
-impl Version {
+/*impl Version {
     pub fn new(version: String) -> Self {
         Self { raw: version }
     }
@@ -66,7 +73,8 @@ impl Version {
         }
         false
     }
-}
+}*/
+#[derive(Debug, Serialize, Deserialize)]
 pub enum PackageType {
     CppBuild,
     Make,
@@ -93,7 +101,7 @@ pub fn download_packages(packages: &Vec<(String, String)>) -> io::Result<()> {
             None,
         )) {*/
         println!("arch: {}", get_arch()?);
-        let mut response = reqwest::blocking::get(
+        let response = reqwest::blocking::get(
             format!(
                 "http://localhost/cppbuild/{}/{}-{}.tar.gz",
                 get_arch()?,
@@ -112,7 +120,7 @@ pub fn download_packages(packages: &Vec<(String, String)>) -> io::Result<()> {
         let mut decoded_data = Vec::new();
         decoder.read_to_end(&mut decoded_data)?;
         let mut a = Archive::new(&*decoded_data);
-        a.unpack(format!("{}/{}-{}/", PROGRAM_DATA.lock().unwrap(), name, version).as_str());
+        a.unpack(format!("{}/{}-{}/", PROGRAM_DATA.lock().unwrap(), name, version).as_str())?;
         // }
     }
     Ok(())
@@ -129,7 +137,7 @@ pub fn generate_package(kind: PackageType, path: &str) -> std::io::Result<()> {
         PackageType::Shell => Ok(()),
         PackageType::Raw => Ok(()),
         PackageType::PkgConfig => {
-            let mut conf = pkg_config::Config::new();
+            let conf = pkg_config::Config::new();
             match conf.probe(path) {
                 Ok(lib) => {
                     for link in lib.link_paths.iter() {
@@ -139,15 +147,15 @@ pub fn generate_package(kind: PackageType, path: &str) -> std::io::Result<()> {
                             let file: &Path = &Path::new(&path_name);
                             if file.exists() && file.is_file(){
                                 // the object file exists
-                                let mut src = File::open(file)?;
+                                //let mut src = File::open(file)?;
                                 //create the new file
-                                let mut dst = File::create("")?;
+                                //let mut dst = File::create("")?;
                             }
                         }
                     }
-                    for i in lib.include_paths.iter() {
+                    /*for i in lib.include_paths.iter() {
                         // for every file in include_paths copy the file to the archive
-                    }
+                    }*/
                 }
                 Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
             }
@@ -155,10 +163,10 @@ pub fn generate_package(kind: PackageType, path: &str) -> std::io::Result<()> {
         }
     }
 }
-pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<()> {
+pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<String> {
     use tar::Builder;
     let tarpath = format!("{}/target/{}-{}.tar", path, name, version);
-    let mut tarfile = File::create(tarpath.as_str())?;
+    let tarfile = File::create(tarpath.as_str())?;
     let mut archive = Builder::new(tarfile);
     for entry in WalkDir::new(path).follow_links(true) {
         let entry = match entry {
@@ -191,7 +199,8 @@ pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<()> {
     };
     let mut targz = File::create(format!("{}.gz", tarpath).as_str())?;
     targz.write_all(&encoded_data)?;
-    std::fs::remove_file(tarpath.as_str())
+    std::fs::remove_file(tarpath.as_str())?;
+    Ok(format!("{}.gz", tarpath))
 }
 pub fn generate_pc(program: &Program) -> std::io::Result<()> {
     Ok(())
