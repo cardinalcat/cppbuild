@@ -4,7 +4,6 @@ use libflate::gzip::{Decoder, Encoder};
 use std::io::{Read, Write};
 use walkdir::WalkDir;
 
-use crate::compiling::Program;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir, File};
 use std::io;
@@ -82,7 +81,7 @@ pub enum PackageType {
     Raw,
     PkgConfig,
 }
-pub fn download_packages(packages: &Vec<(String, String)>) -> io::Result<()> {
+pub fn download_packages(packages: &[(String, String)]) -> io::Result<()> {
     /*let tmp_dir = match Builder::new().prefix("cppbuild").tempdir() {
         Ok(dir) => dir,
         Err(e) => panic!(e),
@@ -176,11 +175,9 @@ pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<String
         };
         let path = entry.path();
         let filename = format!("{}", path.display());
-        if !filename.contains("target") {
-            if path.is_file() {
+        if !filename.contains("target") && path.is_file() {
                 println!("{}", filename);
                 archive.append_file(path, &mut File::open(path)?)?;
-            }
         }
     }
     archive.finish()?;
@@ -203,12 +200,14 @@ pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<String
     std::fs::remove_file(tarpath.as_str())?;
     Ok(format!("{}.gz", tarpath))
 }
+/*
 pub fn generate_pc(program: &Program) -> std::io::Result<()> {
     Ok(())
 }
-pub fn build_to_pc(project: &Project) -> std::io::Result<()> {
+pub fn build_to_pc(package: &Package) -> std::io::Result<()> {
+
     Ok(())
-}
+}*/
 pub fn get_arch() -> std::io::Result<String> {
     let rust_info = rust_info::get();
     Ok(format!(

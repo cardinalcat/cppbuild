@@ -14,7 +14,7 @@ pub struct Project{
 pub struct Package {
     name: String,
     version: String,
-    standard: Option<String>,
+    standard: String,
     project_type: Option<String>,
     url: Option<String>,
     owners: Vec<Owner>,
@@ -104,7 +104,7 @@ impl Project {
             package: Package::new(
                 name,
                 "0.1.0".to_string(),
-                Some("c++17".to_string()),
+                "c++17".to_string(),
                 project_type,
                 own,
                 None,
@@ -131,6 +131,9 @@ impl Project {
     pub fn get_name(&self) -> String {
         self.package.name.clone()
     }
+    pub fn get_standard(&self) -> String{
+        self.package.standard.clone()
+    }
     pub fn from_file(path: &str) -> std::io::Result<Self> {
         let mut file = match File::open(format!("{}/{}", path, "build.toml")) {
             Ok(file) => file,
@@ -147,8 +150,6 @@ impl Project {
             Ok(_) => (),
             Err(e) => return Err(e),
         }
-        println!("content: {}", content);
-        //println!("content: {}", content);
         Ok(Self { package: toml::from_str(content.as_str()).unwrap(), examples: None, tests: None})
     }
 }
@@ -157,7 +158,7 @@ impl Package {
     pub fn new(
         name: String,
         version: String,
-        _standard: Option<String>,
+        standard: String,
         project_type: Option<String>,
         owners: Vec<Owner>,
         url: Option<String>,
@@ -165,7 +166,7 @@ impl Package {
         Self {
             name,
             version,
-            standard: Some("c++17".to_string()),
+            standard,
             project_type,
             url,
             owners,
@@ -179,12 +180,6 @@ impl PartialEq for Package {
             return true;
         }
         false
-    }
-    fn ne(&self, other: &Self) -> bool {
-        if self.version == other.version && self.name == other.name {
-            return false;
-        }
-        true
     }
 }
 impl Owner {

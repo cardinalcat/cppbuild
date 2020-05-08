@@ -10,47 +10,46 @@ use compiling::Program;
 use project::Project;
 use std::fs::create_dir;
 use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
-use project::Test;
+use std::io::{Write};
 use upstream::*;
 use arguments::Arguments;
 
 pub fn print_help(code: i32) -> ! {
     println!(
         "USAGE:
-        --new \t <name> \t creates new project.
+        new \t <name> \t creates new project.
+        \t --lib for library
         --help \t\t displays this message.
         --get-flags \t\t prints flags sent to g++.
-        --fetch name version \t downloads the package and saves it to ~/.cppbuild
-        --publish \t\t generates a tar ball with the source code of the project
-        --build \t\t builds project and outputs it in target/"
+        fetch name version \t downloads the package and saves it to ~/.cppbuild
+        publish \t\t generates a tar ball with the source code of the project
+        build \t\t builds project and outputs it in target/
+        run \t\t runs the program, will only run if it is a binary"
     );
     println!("error code: {}", code);
     std::process::exit(code);
 }
 fn main() {
     let mut args = Arguments::new();
-    args.invoke_callback("--help", &move |args, flags|{
+    args.invoke_callback("--help", &move |_, _|{
         print_help(0);
     });
-    args.invoke_callback("--build", &move |flags, args|{
+    args.invoke_callback("build", &move |_, _|{
         Program::new(&Project::from_file(".").unwrap(), ".")
             .build(".")
             .expect("unable to build the program due to an io error");
     });
-    args.invoke_callback("--flags", &move |flags, args|{
-        println!("flags: {:?}", flags);
-        println!("args other flags: {:?}", args.get_flags());
+    args.invoke_callback("run", &move |_, _| {
+        Program::new(&Project::from_file(".").unwrap(), ".")
+            .run(".")
+            .expect("unable to build the program due to an io error");
     });
-    args.invoke_callback("--new", &move |flags, args|{
-        println!("args: {:?} ", args.get_flags());
+    args.invoke_callback("new", &move |flags, args|{
         let project_type = if args.has_arg("--lib"){
             "lib".to_string()
         }else{
             "bin".to_string()
         };
-        println!("flags: {:?}", flags);
         let project_name = match flags.get(0) {
             Some(arg) => arg.get_name(),
             None => print_help(1),
@@ -71,16 +70,15 @@ fn main() {
             Ok(f) => f,
             _ => panic!("couldn't create initial toml file"),
         };
-        println!("project_type: {}", project_type);
-        let project = Project::new(project_name.clone(), Some(project_type), None);
+        let project = Project::new(project_name, Some(project_type), None);
         file.write_all(&toml::to_string(&project.get_package()).unwrap().into_bytes())
             .unwrap();
     });
-    args.invoke_callback("--publish", &move |flags, _| {
+    args.invoke_callback("publish", &move |flags, _| {
         match flags.get(0){
             Some(f) => { 
                 let buildtype = match flags.get(1){
-                    Some(kind) => {
+                    Some(_) => {
                         PackageType::PkgConfig
                         //PackageType::form_string(&kind.get_name());
                     },
@@ -97,7 +95,7 @@ fn main() {
             Program::new(&Project::from_file(".").unwrap(), ".").get_flags()
         );
     });
-    args.invoke_callback("--fetch", &move |vals, args|{
+    args.invoke_callback("fetch", &move |vals, _|{
         let project_name = match vals.get(0) {
             Some(arg) => arg.get_name(),
             None => print_help(6),
@@ -106,14 +104,13 @@ fn main() {
             Some(arg) => arg.get_name(),
             None => print_help(7),
         };
-        download_packages(&vec![(project_name.to_owned(), project_version.to_owned())]).unwrap();
+        download_packages(&[(project_name, project_version)]).unwrap();
     });
     args.parse();
 }
-pub fn create_test(){
-    println!("create test called");
+/*pub fn create_test(){
     let test = Test::from_file("tests/tests.cpp");
     for t in test.get_entities().iter(){
         //println!("test function: {:?}", t);
     }
-}
+}*/

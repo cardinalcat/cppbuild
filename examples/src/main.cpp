@@ -1,6 +1,5 @@
-#include<gtk/gtk.h>
+
 #include<iostream>
-#include<testinc.h>
 #include<opencv2/opencv.hpp>
 
 using namespace std;
@@ -12,8 +11,8 @@ int main(){
     for(;;){
    	cap >> frame;
         imshow("frame", frame);
-	waitKey(20);	
+	waitKey(20);
     }
     cout << "the code was updated" << endl;
-    included();
+    return 0;
 }
