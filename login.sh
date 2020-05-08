@@ -1,0 +1,1 @@
+cargo login Sujq1WBfHYVgvMNnUCPa7KgRU2w6xSTg
