@@ -16,9 +16,11 @@ pub struct Package {
     version: String,
     standard: String,
     project_type: Option<String>,
-    url: Option<String>,
+    repository: Option<String>,
     owners: Vec<Owner>,
     pub dependency: Option<Vec<Dependency>>,
+    description: Option<String>,
+    license: Option<String>,
 }
 #[derive(Debug)]
 pub struct Example{
@@ -48,18 +50,20 @@ pub struct Test{
 impl Test{
     pub fn from_file(path: &str) -> Self{
         let clang = Clang::new().unwrap();
-        let index = Index::new(&clang, true, false);
+        let index = Index::new(&clang, true, true);
         let tu = index.parser(path).parse().unwrap();
         let functions = tu.get_entity().get_children().into_iter().filter(|e| {
             e.get_kind() == EntityKind::FunctionDecl
         }).collect::<Vec<_>>();
-        for item in tu.get_entity().get_children().into_iter(){
+        /*for item in tu.get_entity().get_children().into_iter(){
             println!("child: {:?}", item);
-        }
+        }*/
         let mut funcs = Vec::with_capacity(functions.len());
         for func in functions.iter(){
             //println!("func: {:?}", func);
-            funcs.push( Item::new( func.get_display_name().unwrap(), func.get_comment() ) );
+            if func.get_comment() == Some("///test".to_string()){
+                funcs.push( Item::new( func.get_display_name().unwrap(), func.get_comment() ) );
+            }
         }
         Self {name: path.to_string(), entities: funcs}
     }
@@ -161,15 +165,17 @@ impl Package {
         standard: String,
         project_type: Option<String>,
         owners: Vec<Owner>,
-        url: Option<String>,
+        repository: Option<String>,
     ) -> Self {
         Self {
             name,
             version,
             standard,
             project_type,
-            url,
+            repository,
             owners,
+            description: None,
+            license: None,
             dependency: None,
         }
     }

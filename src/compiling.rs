@@ -4,6 +4,12 @@ use std::io::Write;
 use std::process::Command;
 use std::time::SystemTime;
 use walkdir::WalkDir;
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum BuildMode{
+    Debug,
+    Release,
+    Normal,
+}
 pub struct Program {
     sources: Box<RefCell<Vec<String>>>,
     dependencies: Vec<String>,
@@ -14,8 +20,13 @@ pub struct Program {
 impl Program {
     ///responsible for building the program, outputs file into target. if it is a binary it is saved to target/main otherwise target/main.o
     ///path specifies the root of the project so the project can be build from other directories
-    pub fn build(&mut self, path: &str) -> std::result::Result<(), std::io::Error> {
+    pub fn build(&mut self, path: &str, mode: BuildMode) -> std::result::Result<(), std::io::Error> {
         let mut extra_args = Vec::new();
+        if mode == BuildMode::Release {
+            extra_args.push("-O3".to_string());
+        }else if mode == BuildMode::Debug{
+            extra_args.push("-g".to_string());
+        }
         if self.program_type == "lib"{
             extra_args.push("-c".to_string());
             extra_args.push("-o".to_string());
@@ -36,18 +47,27 @@ impl Program {
         Ok(())
     }
     ///runs the program, checking first to see if any source code has been updated since last build
-    pub fn run(&mut self, path: &str) -> std::result::Result<(), std::io::Error>{
+    pub fn run(&mut self, path: &str, mode: BuildMode) -> std::result::Result<(), std::io::Error>{
         if self.program_type != "bin"{
             return Err(std::io::Error::new(std::io::ErrorKind::Other, "not an executable file"));
         }
         if last_modified(path, std::fs::metadata(format!("{}/target/main", path).as_str())?.modified()?)?{
-            self.build(path)?;
+            self.build(path, mode)?;
         }
-        let mut command = Command::new(format!("{}/target/main", path).as_str());
-        if let Ok(mut child) = command.spawn() {
-            child.wait().expect("command wasn't running");
-        } else {
-            println!("command didn't start");
+        if mode != BuildMode::Debug {
+            let mut command = Command::new(format!("{}/target/main", path).as_str());
+            if let Ok(mut child) = command.spawn() {
+                child.wait().expect("command wasn't running");
+            } else {
+                println!("command didn't start");
+            }
+        }else{
+            let mut command = Command::new("gdb");
+            if let Ok(mut child) = command.arg(format!("{}/target/main", path).as_str()).spawn() {
+                child.wait().expect("command wasn't running");
+            } else {
+                println!("command didn't start");
+            }
         }
         Ok(())
     }

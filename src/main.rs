@@ -6,12 +6,13 @@ pub mod compiling;
 pub mod project;
 pub mod upstream;
 pub mod arguments;
-use compiling::Program;
+use compiling::*;
 use project::Project;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::{Write};
 use upstream::*;
+use project::Test;
 use arguments::Arguments;
 
 pub fn print_help(code: i32) -> ! {
@@ -34,14 +35,28 @@ fn main() {
     args.invoke_callback("--help", &move |_, _|{
         print_help(0);
     });
-    args.invoke_callback("build", &move |_, _|{
+    args.invoke_callback("build", &move |_, args|{
+        let mode: BuildMode = if args.has_arg("--release"){
+            BuildMode::Release
+        }else if args.has_arg("--debug"){
+            BuildMode::Debug
+        }else{
+            BuildMode::Normal
+        };
         Program::new(&Project::from_file(".").unwrap(), ".")
-            .build(".")
+            .build(".", mode)
             .expect("unable to build the program due to an io error");
     });
-    args.invoke_callback("run", &move |_, _| {
+    args.invoke_callback("run", &move |_, args| {
+        let mode: BuildMode = if args.has_arg("--release"){
+            BuildMode::Release
+        }else if args.has_arg("--debug"){
+            BuildMode::Debug
+        }else{
+            BuildMode::Normal
+        };
         Program::new(&Project::from_file(".").unwrap(), ".")
-            .run(".")
+            .run(".", mode)
             .expect("unable to build the program due to an io error");
     });
     args.invoke_callback("new", &move |flags, args|{
@@ -106,11 +121,14 @@ fn main() {
         };
         download_packages(&[(project_name, project_version)]).unwrap();
     });
+    args.invoke_callback("test", &move |_, _|{
+        create_test();
+    });
     args.parse();
 }
-/*pub fn create_test(){
+pub fn create_test(){
     let test = Test::from_file("tests/tests.cpp");
     for t in test.get_entities().iter(){
-        //println!("test function: {:?}", t);
+        println!("test function: {:?}", t);
     }
-}*/
+}
