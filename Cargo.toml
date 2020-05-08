@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["julian lazaras <lazaras@pdx.edu>"]
 edition = "2018"
 license = "MIT/Apache-2.0"
+documentation = "https://docs.rs/cppbuild"
+repository = "https://github.com/cardinalcat/cppbuild"
+description = """
+library for cppbuild a project aimed at creating a cargo like tool for cpp that integrates other package managers through the use of pkg-config
+"""
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
