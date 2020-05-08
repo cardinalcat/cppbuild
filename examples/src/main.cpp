@@ -16,3 +16,6 @@ int main(){
     cout << "the code was updated" << endl;
     return 0;
 }
+int second_function(){
+
+}

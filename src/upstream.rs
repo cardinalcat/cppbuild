@@ -7,7 +7,7 @@ use walkdir::WalkDir;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir, File};
 use std::io;
-use std::io::{ErrorKind};
+use std::io::ErrorKind;
 use std::path::Path;
 use std::sync::Mutex;
 use tar::Archive;
@@ -32,7 +32,7 @@ lazy_static! {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RepoEntry{
+pub struct RepoEntry {
     name: String,
     version: String,
     build_type: PackageType,
@@ -142,10 +142,10 @@ pub fn generate_package(kind: PackageType, path: &str) -> std::io::Result<()> {
                 Ok(lib) => {
                     for link in lib.link_paths.iter() {
                         // get link paths and for each file in them match it against library name
-                        for l in lib.libs.iter(){
+                        for l in lib.libs.iter() {
                             let path_name = format!("{}/{}", link.display(), l);
                             let file: &Path = &Path::new(&path_name);
-                            if file.exists() && file.is_file(){
+                            if file.exists() && file.is_file() {
                                 // the object file exists
                                 //let mut src = File::open(file)?;
                                 //create the new file
@@ -176,8 +176,8 @@ pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<String
         let path = entry.path();
         let filename = format!("{}", path.display());
         if !filename.contains("target") && path.is_file() {
-                println!("{}", filename);
-                archive.append_file(path, &mut File::open(path)?)?;
+            println!("{}", filename);
+            archive.append_file(path, &mut File::open(path)?)?;
         }
     }
     archive.finish()?;
@@ -200,14 +200,26 @@ pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<String
     std::fs::remove_file(tarpath.as_str())?;
     Ok(format!("{}.gz", tarpath))
 }
-/*
-pub fn generate_pc(program: &Program) -> std::io::Result<()> {
+pub fn generate_pc(package: &Package, path: &str) -> std::io::Result<()> {
+    let mut file = File::create(format!("{}/target/{}-{}.pc", path, package.get_name(), package.get_version()).as_str())?;
+    file.write(b"prefix=\n")?;
+    file.write(b"exec_prefix=${prefix}\n")?;
+    file.write(format!("libdir={}/{}-{}/target/\n", "${prefix}", package.get_name(), package.get_version()).as_bytes())?;
+    file.write(format!("includedir={}/{}-{}/headers/\n", "${prefix}", package.get_name(), package.get_version()).as_bytes())?;
+    file.write(format!("Name: {}\n", package.get_name()).as_bytes())?;
+    file.write(format!("Version: {}\n", package.get_version()).as_bytes())?;
+    match package.get_description(){
+        Some(desc) => file.write(format!("Description: {}\n", desc).as_bytes())?,
+        None => 0,
+    };
+    file.write(format!("Libs: -L{} -l{}\n", "${libdir}", package.get_name()).as_bytes())?;
+    file.write(b"CFlags: -I${includedir}\n")?;
     Ok(())
 }
 pub fn build_to_pc(package: &Package) -> std::io::Result<()> {
 
     Ok(())
-}*/
+}
 pub fn get_arch() -> std::io::Result<String> {
     let rust_info = rust_info::get();
     Ok(format!(

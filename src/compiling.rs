@@ -1,14 +1,26 @@
 use crate::project::Project;
 use std::cell::RefCell;
 use std::io::Write;
+use std::path::Path;
 use std::process::Command;
 use std::time::SystemTime;
 use walkdir::WalkDir;
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
-pub enum BuildMode{
+pub enum BuildMode {
     Debug,
     Release,
     Normal,
+    Example,
+    Test,
+}
+impl BuildMode {
+    pub fn is_normal(&self) -> bool {
+        if self == &BuildMode::Debug || self == &BuildMode::Release || self == &BuildMode::Normal {
+            true
+        } else {
+            false
+        }
+    }
 }
 pub struct Program {
     sources: Box<RefCell<Vec<String>>>,
@@ -20,18 +32,22 @@ pub struct Program {
 impl Program {
     ///responsible for building the program, outputs file into target. if it is a binary it is saved to target/main otherwise target/main.o
     ///path specifies the root of the project so the project can be build from other directories
-    pub fn build(&mut self, path: &str, mode: BuildMode) -> std::result::Result<(), std::io::Error> {
+    pub fn build(
+        &mut self,
+        path: &str,
+        mode: BuildMode,
+    ) -> std::result::Result<(), std::io::Error> {
         let mut extra_args = Vec::new();
         if mode == BuildMode::Release {
             extra_args.push("-O3".to_string());
-        }else if mode == BuildMode::Debug{
+        } else if mode == BuildMode::Debug {
             extra_args.push("-g".to_string());
         }
-        if self.program_type == "lib"{
+        if self.program_type == "lib" {
             extra_args.push("-c".to_string());
             extra_args.push("-o".to_string());
             extra_args.push(format!("{}/target/lib.o", path));
-        }else{
+        } else {
             extra_args.push("-o".to_string());
             extra_args.push(format!("{}/target/main", path));
         }
@@ -41,17 +57,46 @@ impl Program {
             .args(extra_args.iter())
             .args(self.sources.get_mut())
             .args(self.dependencies.iter())
-            .args(self.include.iter()).output()?;
+            .args(self.include.iter())
+            .output()?;
         std::io::stdout().write_all(&op.stdout)?;
         std::io::stderr().write_all(&op.stderr)?;
         Ok(())
     }
     ///runs the program, checking first to see if any source code has been updated since last build
-    pub fn run(&mut self, path: &str, mode: BuildMode) -> std::result::Result<(), std::io::Error>{
-        if self.program_type != "bin"{
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "not an executable file"));
+    pub fn run(&mut self, path: &str, mode: BuildMode) -> std::result::Result<(), std::io::Error> {
+        if self.program_type != "bin"
+            && (mode == BuildMode::Normal || mode == BuildMode::Release || mode == BuildMode::Debug)
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "not an executable file",
+            ));
         }
-        if last_modified(path, std::fs::metadata(format!("{}/target/main", path).as_str())?.modified()?)?{
+        if self.program_type == "bin" && mode == BuildMode::Example {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "binary projects are not allowed to have examples",
+            ));
+        }
+        if self.program_type == "bin" && mode == BuildMode::Test {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "binary projects are not allowed to have tests",
+            ));
+        }
+        let pa = if self.program_type == "bin" {
+            format!("{}/target/main", path)
+        } else {
+            format!("{}/target/main.o", path)
+        };
+        let p = Path::new(pa.as_str());
+        if !p.exists() {
+            self.build(path, mode)?;
+        }
+        if last_modified(path, std::fs::metadata(p)?.modified()?)? {
+            self.build(path, mode)?;
+        } else if mode == BuildMode::Release {
             self.build(path, mode)?;
         }
         if mode != BuildMode::Debug {
@@ -61,9 +106,12 @@ impl Program {
             } else {
                 println!("command didn't start");
             }
-        }else{
+        } else {
             let mut command = Command::new("gdb");
-            if let Ok(mut child) = command.arg(format!("{}/target/main", path).as_str()).spawn() {
+            if let Ok(mut child) = command
+                .arg(format!("{}/target/main", path).as_str())
+                .spawn()
+            {
                 child.wait().expect("command wasn't running");
             } else {
                 println!("command didn't start");
@@ -71,8 +119,7 @@ impl Program {
         }
         Ok(())
     }
-    ///creates the Program instance based on a project instance
-    pub fn new(project: &Project, path: &str) -> Program {
+    fn create(project: &Project, path: &str, mode: BuildMode, file: Option<&str>) -> Self {
         let sources; // = Box::new(RefCell::new(Vec::new()));
         let mut dependencies = Vec::new();
         let mut include = Vec::new();
@@ -80,13 +127,13 @@ impl Program {
             Some(dep) => {
                 for depend in dep.iter() {
                     let mut config = pkg_config::Config::new();
-                    if depend.get_version() != "*"{
+                    if depend.get_version() != "*" {
                         config.exactly_version(&depend.get_version());
                     }
                     //println!(depend.get_version());
                     match config.probe(depend.get_name().as_str()) {
                         Ok(lib) => {
-                            for l in lib.libs { 
+                            for l in lib.libs {
                                 let li = format!("{}{}", "-l", l);
                                 //println!("li: {}", li);
                                 dependencies.push(li);
@@ -104,17 +151,16 @@ impl Program {
                         Err(e) => println!("error: {}", e),
                     }
                 }
-                let walk: RefCell<walkdir::IntoIter> =
-                    RefCell::new(WalkDir::new(format!("{}/src", path).as_str()).into_iter());
-                let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
-                sources = add_file(walk, build);
             }
-            None => {
-                let walk: RefCell<walkdir::IntoIter> =
-                    RefCell::new(WalkDir::new("src").into_iter());
-                let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
-                sources = add_file(walk, build);
-            }
+            None => (),
+        }
+        if mode.is_normal() {
+            let walk: RefCell<walkdir::IntoIter> =
+                RefCell::new(WalkDir::new(format!("{}/src", path).as_str()).into_iter());
+            let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
+            sources = add_file(walk, build);
+        } else {
+            sources = Box::new(RefCell::new(vec![format!("{}/{}", path, file.unwrap())]));
         }
         Self {
             sources,
@@ -123,6 +169,16 @@ impl Program {
             program_type: project.get_type(),
             standard: project.get_standard(),
         }
+    }
+    pub fn example(project: &Project, path: &str, file: &str) -> Self {
+        Self::create(project, path, BuildMode::Example, Some(file))
+    }
+    pub fn test(project: &Project, path: &str, file: &str) -> Self {
+        Self::create(project, path, BuildMode::Test, Some(file))
+    }
+    ///creates the Program instance based on a project instance
+    pub fn new(project: &Project, path: &str) -> Program {
+        Self::create(project, path, BuildMode::Normal, None)
     }
     ///lists flags passed to g++ except for special flags
     pub fn get_flags(&mut self) -> String {
@@ -148,11 +204,11 @@ pub fn add_file(
     add_file(walk, build)
 }
 ///checks if any file in a given path has been modified more recently then the given SystemTime passed in
-pub fn last_modified(path: &str, time: SystemTime) -> std::result::Result<bool, std::io::Error>{
-    for file in WalkDir::new(path).into_iter(){
+pub fn last_modified(path: &str, time: SystemTime) -> std::result::Result<bool, std::io::Error> {
+    for file in WalkDir::new(path).into_iter() {
         let file = file?;
         let metadata = std::fs::metadata(file.path()).unwrap();
-        if metadata.modified().unwrap() > time{
+        if metadata.modified().unwrap() > time {
             return Ok(true);
         }
     }
