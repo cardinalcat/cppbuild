@@ -201,23 +201,18 @@ pub fn compress(path: &str, name: &str, version: &str) -> std::io::Result<String
     Ok(format!("{}.gz", tarpath))
 }
 pub fn generate_pc(package: &Package, path: &str) -> std::io::Result<()> {
-    let mut file = File::create(format!("{}/target/{}-{}.pc", path, package.get_name(), package.get_version()).as_str())?;
-    file.write(b"prefix=\n")?;
-    file.write(b"exec_prefix=${prefix}\n")?;
-    file.write(format!("libdir={}/{}-{}/target/\n", "${prefix}", package.get_name(), package.get_version()).as_bytes())?;
-    file.write(format!("includedir={}/{}-{}/headers/\n", "${prefix}", package.get_name(), package.get_version()).as_bytes())?;
-    file.write(format!("Name: {}\n", package.get_name()).as_bytes())?;
-    file.write(format!("Version: {}\n", package.get_version()).as_bytes())?;
-    match package.get_description(){
-        Some(desc) => file.write(format!("Description: {}\n", desc).as_bytes())?,
-        None => 0,
+    let mut file = File::create(format!("{}/target/{}.pc", path, package.get_name()).as_str())?;
+    file.write_all(b"prefix=\n")?;
+    file.write_all(b"exec_prefix=${prefix}\n")?;
+    file.write_all(format!("libdir={}/{}-{}/target/\n", "${prefix}", package.get_name(), package.get_version()).as_bytes())?;
+    file.write_all(format!("includedir={}/{}-{}/headers/\n", "${prefix}", package.get_name(), package.get_version()).as_bytes())?;
+    file.write_all(format!("Name: {}\n", package.get_name()).as_bytes())?;
+    file.write_all(format!("Version: {}\n", package.get_version()).as_bytes())?;
+    if let Some(desc) = package.get_description(){
+        file.write_all(format!("Description: {}\n", desc).as_bytes())?;
     };
-    file.write(format!("Libs: -L{} -l{}\n", "${libdir}", package.get_name()).as_bytes())?;
-    file.write(b"CFlags: -I${includedir}\n")?;
-    Ok(())
-}
-pub fn build_to_pc(package: &Package) -> std::io::Result<()> {
-
+    file.write_all(format!("Libs: -L{} -l{}\n", "${libdir}", package.get_name()).as_bytes())?;
+    file.write_all(b"CFlags: -I${includedir}\n")?;
     Ok(())
 }
 pub fn get_arch() -> std::io::Result<String> {

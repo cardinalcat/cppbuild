@@ -15,14 +15,11 @@ pub enum BuildMode {
 }
 impl BuildMode {
     pub fn is_normal(&self) -> bool {
-        if self == &BuildMode::Debug || self == &BuildMode::Release || self == &BuildMode::Normal {
-            true
-        } else {
-            false
-        }
+        self == &BuildMode::Debug || self == &BuildMode::Release || self == &BuildMode::Normal
     }
 }
 pub struct Program {
+    name: String,
     sources: Box<RefCell<Vec<String>>>,
     dependencies: Vec<String>,
     include: Vec<String>,
@@ -42,16 +39,26 @@ impl Program {
             extra_args.push("-O3".to_string());
         } else if mode == BuildMode::Debug {
             extra_args.push("-g".to_string());
+        } //this will be used to link the .o file from this project
+        else if mode == BuildMode::Example {
+            extra_args.push(format!("{}/target/lib{}.so", path, self.name));
+            self.program_type = "bin".to_string();
+            //shoud check if object file exists if not build it
         }
         if self.program_type == "lib" {
             extra_args.push("-c".to_string());
             extra_args.push("-o".to_string());
-            extra_args.push(format!("{}/target/lib.o", path));
+            extra_args.push(format!("{}/target/lib{}.so", path, self.name));
         } else {
             extra_args.push("-o".to_string());
-            extra_args.push(format!("{}/target/main", path));
+            extra_args.push(format!("{}/target/{}", path, self.name));
         }
-        extra_args.push(format!("-std={}", self.standard.clone()));
+        if self.standard == "nostd"{
+            extra_args.push("-nostd".to_string());
+        }else{
+            extra_args.push(format!("-std={}", self.standard.clone()));
+        }
+        extra_args.push("-static".to_string());
         let op = Command::new("g++")
             .args(&["-Iheaders/"])
             .args(extra_args.iter())
@@ -61,6 +68,9 @@ impl Program {
             .output()?;
         std::io::stdout().write_all(&op.stdout)?;
         std::io::stderr().write_all(&op.stderr)?;
+        if mode == BuildMode::Example{
+            self.program_type = "lib".to_string();
+        }
         Ok(())
     }
     ///runs the program, checking first to see if any source code has been updated since last build
@@ -86,21 +96,19 @@ impl Program {
             ));
         }
         let pa = if self.program_type == "bin" {
-            format!("{}/target/main", path)
+            format!("{}/target/{}", path, self.name)
         } else {
-            format!("{}/target/main.o", path)
+            format!("{}/target/{}.o", path, self.name)
         };
         let p = Path::new(pa.as_str());
         if !p.exists() {
             self.build(path, mode)?;
         }
-        if last_modified(path, std::fs::metadata(p)?.modified()?)? {
-            self.build(path, mode)?;
-        } else if mode == BuildMode::Release {
+        if last_modified(path, std::fs::metadata(p)?.modified()?)? || mode == BuildMode::Release {
             self.build(path, mode)?;
         }
         if mode != BuildMode::Debug {
-            let mut command = Command::new(format!("{}/target/main", path).as_str());
+            let mut command = Command::new(pa.as_str());
             if let Ok(mut child) = command.spawn() {
                 child.wait().expect("command wasn't running");
             } else {
@@ -109,7 +117,7 @@ impl Program {
         } else {
             let mut command = Command::new("gdb");
             if let Ok(mut child) = command
-                .arg(format!("{}/target/main", path).as_str())
+                .arg(pa.as_str())
                 .spawn()
             {
                 child.wait().expect("command wasn't running");
@@ -163,6 +171,7 @@ impl Program {
             sources = Box::new(RefCell::new(vec![format!("{}/{}", path, file.unwrap())]));
         }
         Self {
+            name: project.get_package().get_name(),
             sources,
             dependencies,
             include,

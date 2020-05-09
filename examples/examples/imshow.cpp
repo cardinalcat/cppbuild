@@ -16,8 +16,6 @@ int main(){
     cout << "the code was updated" << endl;
     return 0;
 }
-///test
-int 
-second_function(){
+int second_function(){
 
 }

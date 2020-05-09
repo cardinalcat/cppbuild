@@ -8,8 +8,7 @@ pub mod project;
 pub mod upstream;
 use arguments::Arguments;
 use compiling::*;
-use project::Project;
-use project::Test;
+use project::*;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::Write;
@@ -49,16 +48,24 @@ fn main() {
             .expect("unable to build the program due to an io error");
     });
     args.invoke_callback("run", &move |_, args| {
-        let mode: BuildMode = if args.has_arg("--release") {
+        let mode: BuildMode = if args.has_arg("--example") {
+            BuildMode::Example
+        }else if args.has_arg("--release"){
             BuildMode::Release
-        } else if args.has_arg("--debug") {
+        } 
+        else if args.has_arg("--debug") {
             BuildMode::Debug
         } else {
             BuildMode::Normal
         };
+        if mode.is_normal(){
         Program::new(&Project::from_file(".").unwrap(), ".")
             .run(".", mode)
             .expect("unable to build the program due to an io error");
+        }else if mode == BuildMode::Example{
+            let examples = Example::new(".").unwrap();
+            Program::example(&Project::from_file(".").unwrap(), ".", &examples.find("imshow").unwrap()).run(".", mode).unwrap();
+        }
     });
     args.invoke_callback("new", &move |flags, args| {
         let project_type = if args.has_arg("--lib") {
@@ -135,9 +142,6 @@ fn main() {
     args.parse();
 }
 pub fn create_test() {
-    generate_pc(&Project::from_file(".").unwrap().get_package(), ".");
-    /*let test = Test::from_file("tests/tests.cpp", "///test").unwrap();
-    for t in test.get_entities().iter() {
-        println!("test function: {:?}", t);
-    }*/
+    //generate_pc(&Project::from_file(".").unwrap().get_package(), ".").unwrap();
+    let test = Test::from_file(".", "///test").unwrap().build_main().unwrap();
 }

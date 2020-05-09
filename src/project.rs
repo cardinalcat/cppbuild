@@ -3,9 +3,11 @@ use serde_derive::{Deserialize, Serialize};
 use std::fs::{create_dir, File};
 use std::io::Read;
 use std::path::Path;
+use std::io::Write;
+use itertools::Itertools;
 use walkdir::WalkDir;
 //thinking of moving deps, and owners to package then putting examples and tests in Project
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Package {
     name: String,
     version: String,
@@ -20,12 +22,22 @@ pub struct Package {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Example {
-    name: String,
-    exec_path: String,
+    exec_paths: Vec<String>,
 }
 impl Example {
-    pub fn new(name: String, exec_path: String) -> Self {
-        Self { name, exec_path }
+    pub fn new(path: &str) -> std::io::Result<Self> {
+        let mut exec_paths = Vec::new();
+        for file in WalkDir::new(format!("{}/examples", path)){
+            exec_paths.push(format!("{}", file?.path().display()));
+        }
+        Ok( Self { exec_paths } )
+    }
+    pub fn find(&self, name: &str) -> Option<String>{
+        let name = format!("examples/{}.cpp", name);
+        if self.exec_paths.contains(&name){
+            return Some(name);
+        }
+        None
     }
 }
 /*pub struct Location{
@@ -36,19 +48,27 @@ impl Example {
 impl Location{
     pub fn new()
 }*/
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum ItemType{
+    FunctionDecl,
+    UsingDirective,
+    InclusionDirective,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Item {
-    name: String,
+    name: Option<String>,
     comment: Option<String>,
     full_text: String,
+    kind: ItemType,
 }
 impl Item {
     pub fn new(
-        name: String,
+        name: Option<String>,
         comment: Option<String>,
         path: &str,
         start: usize,
         end: usize,
+        kind: ItemType,
     ) -> std::result::Result<Self, std::io::Error> {
         let mut file = File::open(path)?;
         let mut content: Vec<u8> = Vec::new();
@@ -64,92 +84,98 @@ impl Item {
             name,
             comment,
             full_text,
+            kind
         })
+    }
+    pub fn get_type(&self) -> ItemType{
+        self.kind.clone()
+    }
+    pub fn get_text(&self) -> String{
+        self.full_text.clone()
+    }
+    pub fn get_name(&self) -> Option<String>{
+        self.name.clone()
     }
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Test {
     name: String,
     entities: Vec<Item>,
-    includes: Vec<(String, bool)>,
     dir: String,
 }
 impl Test {
     ///reads from the file given in path and matches doc comments found to see if an identifier can be found, in the binary that is ///test
     pub fn from_file(path: &str, ident: &str) -> std::result::Result<Self, std::io::Error> {
+        let project = Project::from_file(path)?;
         let clang = Clang::new().unwrap();
         let index = Index::new(&clang, false, false);
-        let tu = index
-            .parser(path)
-            .detailed_preprocessing_record(true)
-            .parse()
-            .unwrap();
-        let functions = tu
-            .get_entity()
-            .get_children()
-            .into_iter()
-            .filter(|e| e.get_kind() == EntityKind::FunctionDecl)
-            .collect::<Vec<_>>();
-        let incs = tu
-            .get_entity()
-            .get_children()
-            .into_iter()
-            .filter(|e| {
-                e.get_kind() == EntityKind::InclusionDirective && !e.is_in_system_header()
-                    || e.get_kind() == EntityKind::UsingDirective && !e.is_in_system_header()
-            })
-            .collect::<Vec<_>>();
-        let mut includes = Vec::new();
-        for inc in incs.iter() {
-            includes.push(match inc.get_display_name() {
-                Some(name) => {
-                    let kind: bool = if inc.get_kind() == EntityKind::UsingDirective {
-                        true
-                    } else {
-                        false
-                    };
-                    (name, kind)
-                }
-                None => {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "display name for include directive doesn't exist",
-                    ))
-                }
-            });
-        }
-        /*for item in tu.get_entity().get_children().into_iter(){
-            println!("child: {:?}", item);
-        }*/
-        let mut funcs = Vec::with_capacity(functions.len());
-        for func in functions.iter() {
-            //println!("func: {:?}", func);
-            if func.get_comment() == Some(ident.to_string()) {
-                //println!("start: {:?}, end: {:?}", func.get_range().unwrap().get_start(), func.get_range().unwrap().get_end());
-                let range = func.get_range().unwrap();
-                funcs.push(Item::new(
-                    func.get_display_name().unwrap(),
-                    func.get_comment(),
-                    &format!(
-                        "{}",
-                        func.get_location()
-                            .unwrap()
-                            .get_file_location()
-                            .file
-                            .unwrap()
-                            .get_path()
-                            .as_path()
-                            .display()
-                    ),
-                    range.get_start().get_file_location().offset as usize,
-                    range.get_end().get_file_location().offset as usize,
-                )?);
+        let mut tests: Vec<std::io::Result<String>> = WalkDir::new(format!("{}/src",path)).into_iter().filter(|e|{
+            e.as_ref().unwrap().path().is_file()
+        }).map(|e| {
+            Ok(format!("{}", e?.path().display()))
+        }).collect();
+        /*tests.append(&mut WalkDir::new(format!("{}/headers",path)).into_iter().filter(|e|{
+            e.as_ref().unwrap().path().is_file()
+        }).map(|e|{
+            Ok(format!("{}", e?.path().display()))
+        }).collect());*/
+        tests.append(&mut WalkDir::new(format!("{}/tests",path)).into_iter().filter(|e|{
+            e.as_ref().unwrap().path().is_file()
+        }).map(|e| {
+            Ok(format!("{}", e?.path().display()))
+        }).collect());
+        let mut funcs = Vec::new();
+        for test in tests.iter(){
+            let test = match test{
+                Ok(t) => t,
+                Err(e) => return Err(std::io::Error::new(e.kind(), "error getting test")),
+            };
+            let tu = index
+                .parser(test)
+                .detailed_preprocessing_record(true)
+                .parse()
+                .unwrap();
+            let functions = tu
+                .get_entity()
+                .get_children()
+                .into_iter()
+                .filter(|e|  { 
+                    e.get_kind() == EntityKind::FunctionDecl && e.get_comment() == Some(ident.to_string()) ||
+                    e.get_kind() == EntityKind::InclusionDirective && !e.is_in_system_header()
+                        || e.get_kind() == EntityKind::UsingDirective && !e.is_in_system_header()
+                })
+                .collect::<Vec<_>>();
+            for func in functions.iter() {
+                //println!("func: {:?}", func);
+                    //println!("start: {:?}, end: {:?}", func.get_range().unwrap().get_start(), func.get_range().unwrap().get_end());
+                    let range = func.get_range().unwrap();
+                    funcs.push(Item::new(
+                        func.get_display_name(),
+                        func.get_comment(),
+                        &format!(
+                            "{}",
+                            func.get_location()
+                                .unwrap()
+                                .get_file_location()
+                                .file
+                                .unwrap()
+                                .get_path()
+                                .as_path()
+                                .display()
+                        ),
+                        range.get_start().get_file_location().offset as usize,
+                        range.get_end().get_file_location().offset as usize,
+                        match func.get_kind(){
+                            EntityKind::FunctionDecl => ItemType::FunctionDecl,
+                            EntityKind::UsingDirective => ItemType::UsingDirective,
+                            _ => ItemType::InclusionDirective
+                        }
+                    )?);
             }
         }
         Ok(Self {
-            name: path.to_string(),
-            entities: funcs,
-            includes,
+            name: project.get_name(),
+            entities: funcs.into_iter().unique().collect(),
             dir: path.to_string(),
         })
     }
@@ -163,6 +189,31 @@ impl Test {
     }
     ///this function builds the main function that calls each test function
     pub fn build_main(&self) -> std::result::Result<(), std::io::Error> {
+        let mut file = File::create(format!("{}/target/test_{}.cpp", self.dir, self.name))?;
+        let mut open: bool = false;
+        let mut funcs = Vec::new();
+        for item in self.entities.iter(){
+            match item.get_type(){
+                ItemType::InclusionDirective => {
+                    file.write_all(format!("{}\n", item.get_text()).as_bytes())?
+                },
+                ItemType::UsingDirective => {
+                    file.write_all(format!("{};\n", item.get_text()).as_bytes())?
+                },
+                ItemType::FunctionDecl => {
+                    file.write_all(format!("int {};\n", item.get_name().unwrap()).as_bytes())?;
+                    funcs.push(item);
+                },
+            }
+        }
+        for func in funcs.iter(){
+            if !open{
+                open = true;
+                file.write_all(b"int main(){\n")?;
+            }
+            file.write_all(format!("\t{};\n", func.get_name().unwrap()).as_bytes())?;
+        }
+        file.write_all(b"}\n")?;
         Ok(())
     }
 }
@@ -186,7 +237,7 @@ impl Dependency {
         self.url.clone()
     }
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Owner {
     name: String,
     email: String,
@@ -217,8 +268,8 @@ impl Project {
             tests: None,
         }
     }
-    pub fn get_package(self) -> Package {
-        self.package
+    pub fn get_package(&self) -> Package {
+        self.package.clone()
     }
     pub fn get_dependencies(&self) -> Option<Vec<Dependency>> {
         match &self.package.dependency {
