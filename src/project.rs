@@ -22,6 +22,7 @@ pub struct Package {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Example {
+    dir: String,
     exec_paths: Vec<String>,
 }
 impl Example {
@@ -30,14 +31,17 @@ impl Example {
         for file in WalkDir::new(format!("{}/examples", path)){
             exec_paths.push(format!("{}", file?.path().display()));
         }
-        Ok( Self { exec_paths } )
+        Ok( Self { dir: path.to_string(), exec_paths } )
     }
     pub fn find(&self, name: &str) -> Option<String>{
-        let name = format!("examples/{}.cpp", name);
+        let name = format!("{}/examples/{}.cpp",self.dir, name);
         if self.exec_paths.contains(&name){
             return Some(name);
         }
         None
+    }
+    pub fn has_example(&self, name: &str) -> bool{
+        self.find(name).is_some()
     }
 }
 /*pub struct Location{
@@ -146,8 +150,6 @@ impl Test {
                 })
                 .collect::<Vec<_>>();
             for func in functions.iter() {
-                //println!("func: {:?}", func);
-                    //println!("start: {:?}, end: {:?}", func.get_range().unwrap().get_start(), func.get_range().unwrap().get_end());
                     let range = func.get_range().unwrap();
                     funcs.push(Item::new(
                         func.get_display_name(),

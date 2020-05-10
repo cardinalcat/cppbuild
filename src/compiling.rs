@@ -140,12 +140,11 @@ impl Program {
                     if depend.get_version() != "*" {
                         config.exactly_version(&depend.get_version());
                     }
-                    //println!(depend.get_version());
+                    
                     match config.probe(depend.get_name().as_str()) {
                         Ok(lib) => {
                             for l in lib.libs {
                                 let li = format!("{}{}", "-l", l);
-                                //println!("li: {}", li);
                                 dependencies.push(li);
                             }
                             for i in lib.include_paths {

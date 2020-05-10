@@ -31,16 +31,16 @@ impl Operation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Flag {
     flag: String,
-    values: Vec<String>,
+    values: Vec<Arg>,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArgType {
     OPTION,
     VALUE,
     FLAG,
 }
 ///holds all arguments, allowing them to be sorted into types aka flag, value, option where values are children of flags
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Arg {
     name: String,
     kind: ArgType,
@@ -56,32 +56,47 @@ impl Arg {
 }
 ///flag as something containing --
 impl Flag {
-    pub fn new(flag: String, values: Vec<String>) -> Self {
+    pub fn new(flag: String, values: Vec<Arg>) -> Self {
         Self { flag, values }
     }
     pub fn get_name(&self) -> String {
         self.flag.clone()
     }
+    pub fn extend_from_slice(&mut self, slice: &[Arg]){
+        self.values.extend_from_slice(slice);
+    }
+    pub fn get_values(&self) -> &[Arg]{
+        self.values.as_slice()
+    }
+    pub fn get_value_vec(&self) -> Vec<Arg>{
+        self.values.clone()
+    }
 }
+//let fun = op.func.get_mut();
+//fun(&slice_args[start..end], &self);
 ///main struct that organizes argument parsing
 impl Arguments {
     ///constructs the parser
     pub fn new() -> Self {
         let mut args: Vec<String> = std::env::args().skip(1).collect();
+        let mut arglist = Vec::new();
         let mut flags = Vec::new();
         let option: String = args.remove(0);
-        flags.push(Arg::new(option, ArgType::OPTION));
+        let reop = option.clone();
+        arglist.push(Arg::new(option, ArgType::OPTION));
+        flags.push(Flag::new(reop, Vec::new()));
         for arg in args.iter() {
             if arg.find("--").is_some() {
-                flags.push(Arg::new(arg.clone(), ArgType::FLAG));
+                arglist.push(Arg::new(arg.clone(), ArgType::FLAG));
+                flags.push(Flag::new(arg.clone(), Vec::new()));
             } else {
-                flags.push(Arg::new(arg.clone(), ArgType::VALUE));
+                arglist.push(Arg::new(arg.clone(), ArgType::VALUE));
             }
         }
         Self {
-            args: flags,
+            args: arglist,
             operations: Vec::new(),
-            flags: None,
+            flags: Some(flags),
         }
     }
     ///adds a callback for a flag when it is found
@@ -89,7 +104,7 @@ impl Arguments {
         self.operations.push(Operation::new(flag.to_string(), func));
     }
     ///invokes methods associated with the flags saved above
-    pub fn parse(&self) {
+    pub fn parse(&mut self) {
         //seperate out flags and their children
         //then iterate through again to invoke each operation
         // convert args to slice so direct access is safer
@@ -103,14 +118,20 @@ impl Arguments {
         let slice_args = self.args.as_slice();
         for (ind, flag_index) in flags_index.iter().enumerate() {
             let flag = &slice_args[*flag_index];
-            if let Some(mut op) = Operation::select(&flag.name, &self.operations) {
-                let start: usize = flag_index + 1;
+                let start: usize = *flag_index + 1;
                 let end: usize = match flags_index.get(ind + 1) {
                     Some(index) => *index,
                     None => slice_args.len(),
                 };
+                let f = self.get_flag_index(&flag.name).expect("flag parsing error");
+                let slice = self.flags.as_mut().unwrap().as_mut_slice();
+                slice[f].extend_from_slice(&slice_args[start..end]);
+                
+        }
+        for flag in self.flags.as_ref().unwrap().iter(){
+            if let Some(mut op) = Operation::select(&flag.get_name(), &self.operations){
                 let fun = op.func.get_mut();
-                fun(&slice_args[start..end], &self);
+                fun(flag.get_values(), &self);
             }
         }
     }
@@ -121,8 +142,19 @@ impl Arguments {
                 for flag in fs.iter() {
                     if flag.get_name() == flag_name {
                         return Some(flag.clone());
+                    }                }
+                None
+            }
+            None => None,
+        }
+    }
+    pub fn get_flag_index(&self, flag_name: &str) -> Option<usize>{
+        match &self.flags {
+            Some(fs) => {
+                for (index, flag) in fs.iter().enumerate() {
+                    if flag.get_name() == flag_name {
+                        return Some(index);
                     }
-                    println!("flag_name: {}", flag_name);
                 }
                 None
             }

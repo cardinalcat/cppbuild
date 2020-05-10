@@ -64,7 +64,19 @@ fn main() {
             .expect("unable to build the program due to an io error");
         }else if mode == BuildMode::Example{
             let examples = Example::new(".").unwrap();
-            Program::example(&Project::from_file(".").unwrap(), ".", &examples.find("imshow").unwrap()).run(".", mode).unwrap();
+            let mut program = Program::new(&Project::from_file(".").unwrap(), ".");
+            let flag = match args.get_flag("--example"){
+                Some(flag) => flag,
+                None => print_help(8),
+            };
+            let values = flag.get_values();
+            if values.len() < 1 {
+                println!("len: {}", values.len());
+                print_help(9);
+            }
+
+            program.append_source_file(examples.find(&values[0].get_name()).unwrap());
+            program.run(".", mode).unwrap();
         }
     });
     args.invoke_callback("new", &move |flags, args| {
