@@ -187,6 +187,12 @@ impl Test {
     pub fn append(&mut self, second: &mut Vec<Item>) {
         self.entities.append(second);
     }
+    pub fn get_dir(&self) -> String{
+        self.dir.clone()
+    }
+    pub fn get_name(&self) -> String{
+        self.name.clone()
+    }
     ///this function builds the main function that calls each test function
     pub fn build_main(&self) -> std::result::Result<(), std::io::Error> {
         let mut file = File::create(format!("{}/target/test_{}.cpp", self.dir, self.name))?;

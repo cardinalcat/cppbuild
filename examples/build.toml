@@ -1,7 +1,7 @@
 name = "random"
 version = "0.1.0"
 standard = "c++17"
-project_type = "bin"
+project_type = "lib"
 
 [[owners]]
 name = "cardinal"
@@ -11,6 +11,3 @@ email = "unset"
 name = "opencv4"
 version = "*"
 
-[[dependency]]
-name = "gtk+-3.0"
-version = "*"

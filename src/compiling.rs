@@ -40,8 +40,8 @@ impl Program {
         } else if mode == BuildMode::Debug {
             extra_args.push("-g".to_string());
         } //this will be used to link the .o file from this project
-        else if mode == BuildMode::Example {
-            extra_args.push(format!("{}/target/lib{}.so", path, self.name));
+        else if mode == BuildMode::Example || mode == BuildMode::Test{
+            //extra_args.push(format!("{}/target/lib{}.so", path, self.name));
             self.program_type = "bin".to_string();
             //shoud check if object file exists if not build it
         }
@@ -97,7 +97,9 @@ impl Program {
         }
         let pa = if self.program_type == "bin" {
             format!("{}/target/{}", path, self.name)
-        } else {
+        } else if self.program_type == "lib" && !mode.is_normal() {
+            format!("{}/target/{}", path, self.name)
+        }else{
             format!("{}/target/{}.o", path, self.name)
         };
         let p = Path::new(pa.as_str());
@@ -128,7 +130,7 @@ impl Program {
         Ok(())
     }
     fn create(project: &Project, path: &str, mode: BuildMode, file: Option<&str>) -> Self {
-        let sources; // = Box::new(RefCell::new(Vec::new()));
+        let mut sources; // = Box::new(RefCell::new(Vec::new()));
         let mut dependencies = Vec::new();
         let mut include = Vec::new();
         match &project.get_dependencies() {
@@ -162,14 +164,15 @@ impl Program {
             }
             None => (),
         }
-        if mode.is_normal() {
-            let walk: RefCell<walkdir::IntoIter> =
-                RefCell::new(WalkDir::new(format!("{}/src", path).as_str()).into_iter());
-            let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
-            sources = add_file(walk, build);
-        } else {
-            sources = Box::new(RefCell::new(vec![format!("{}/{}", path, file.unwrap())]));
-        }
+        let walk: RefCell<walkdir::IntoIter> =
+            RefCell::new(WalkDir::new(format!("{}/src", path).as_str()).into_iter());
+        let build: RefCell<Vec<String>> = RefCell::new(Vec::new());
+        sources = add_file(walk, build);
+        sources.get_mut().append(&mut WalkDir::new(format!("{}/tests",path)).into_iter().filter(|e|{
+            e.as_ref().unwrap().path().is_file()
+        }).map(|e| {
+            format!("{}", e.unwrap().path().display())
+        }).collect());
         Self {
             name: project.get_package().get_name(),
             sources,
@@ -178,6 +181,9 @@ impl Program {
             program_type: project.get_type(),
             standard: project.get_standard(),
         }
+    }
+    pub fn append_source_file(&mut self, file: String){
+        self.sources.get_mut().push(file);
     }
     pub fn example(project: &Project, path: &str, file: &str) -> Self {
         Self::create(project, path, BuildMode::Example, Some(file))

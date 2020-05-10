@@ -143,5 +143,10 @@ fn main() {
 }
 pub fn create_test() {
     //generate_pc(&Project::from_file(".").unwrap().get_package(), ".").unwrap();
-    let test = Test::from_file(".", "///test").unwrap().build_main().unwrap();
+    let test = Test::from_file(".", "///test").unwrap();
+    test.build_main().unwrap();
+    let project = Project::from_file(".").unwrap();
+    let mut program = Program::new(&project, ".");
+    program.append_source_file(format!("{}/target/test_{}.cpp", test.get_dir(), test.get_name()));
+    program.run(".", BuildMode::Test).unwrap();
 }
