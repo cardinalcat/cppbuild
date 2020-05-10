@@ -5,7 +5,7 @@
 using namespace std;
 using namespace cv;
 
-/*int main(){
+int video_show(){
     Mat frame;
     VideoCapture cap(0);
     for(;;){
@@ -15,10 +15,11 @@ using namespace cv;
     }
     cout << "the code was updated" << endl;
     return 0;
-}*/
+}
 ///test
 int 
 second_function(){
+    video_show(); 
     cout << "second function called" << endl;
 }
 int included(){

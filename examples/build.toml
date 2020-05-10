@@ -11,3 +11,6 @@ email = "unset"
 name = "opencv4"
 version = "*"
 
+[[dependency]]
+name = "gtk+-3.0"
+version = "*"

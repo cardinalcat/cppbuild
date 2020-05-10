@@ -58,7 +58,7 @@ impl Program {
         }else{
             extra_args.push(format!("-std={}", self.standard.clone()));
         }
-        extra_args.push("-static".to_string());
+        //extra_args.push("-static".to_string());
         let op = Command::new("g++")
             .args(&["-Iheaders/"])
             .args(extra_args.iter())
