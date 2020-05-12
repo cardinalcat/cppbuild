@@ -3,16 +3,19 @@
 extern crate lazy_static;
 extern crate toml;
 pub mod arguments;
-pub mod compiling;
+pub mod program;
 pub mod project;
 pub mod upstream;
+pub mod compiler;
+use compiler::*;
 use arguments::Arguments;
-use compiling::*;
+use program::*;
 use project::*;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::Write;
 use upstream::*;
+
 
 pub fn print_help(code: i32) -> ! {
     println!(
